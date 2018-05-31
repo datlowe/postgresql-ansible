@@ -1,0 +1,52 @@
+---
+- name: "Phase 2 - Stop old postgresql service"
+  service: name="postgresql-{{ postgresql_version }}" state=stopped
+  when: postgresql_drop_old_cluster == true
+
+- name: "Phase 2 - remove old postgresql cluster"
+  command: "rm -rf /var/lib/pgsql/{{ postgresql_version }}/data"
+  when: postgresql_drop_old_cluster == true
+
+- name: "Phase 2 - Set PostgreSQL environment variables"
+  template:
+    src: postgres.sh.j2
+    dest: /etc/profile.d/postgres.sh
+    mode: 0644
+
+- name: "Phase 2 - Check if PostgreSQL database is initialized"
+  stat:
+    path: "/var/lib/pgsql/{{ postgresql_version }}/data/PG_VERSION"
+  register: pgdata_dir_version
+
+- name: "Phase 2 - Initialize new postgresql cluster"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  command: "/usr/pgsql-{{ postgresql_version }}/bin/initdb -D /var/lib/pgsql/{{ postgresql_version }}/data"
+  when: not pgdata_dir_version.stat.exists
+
+- name: "Phase 2 - Configure pg_hba.conf"
+  template:
+    src: pg_hba.conf.j2
+    dest: "/var/lib/pgsql/{{ postgresql_version }}/data/pg_hba.conf"
+    owner: "{{ postgresql_admin_user }}"
+    group: "{{ postgresql_admin_user }}"
+    mode: 0640
+
+- name: "Phase 2 - Ensure PostgreSQL is listening on all localhost"
+  lineinfile:
+    dest: "/var/lib/pgsql/{{ postgresql_version }}/data/postgresql.conf"
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '127.0.0.1'"
+    state: present
+
+- name: "Phase 2 - Create postgresql log directory"
+  file:
+    path: "{{ postgresql_log_directory }}"
+    state: directory
+    owner: "{{ postgresql_admin_user }}"
+    group: "{{ postgresql_admin_user }}"
+    mode: 0755
+  when: postgresql_log_directory is defined
+
+- name: "Phase 2 - Start postgresql service"
+  service: name="postgresql-{{ postgresql_version }}" state=started enabled=yes

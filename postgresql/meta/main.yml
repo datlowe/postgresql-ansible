@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  author: "Jiri Polansky"
+  description: PostgreSQL 9.x RedHat Enterprise Linux installer.
+  min_ansible_version: 1.4
+  version: 1.0
+  platforms:
+    - name: EL
+      versions:
+      - 7
+  categories:
+   - database
+   - postgresql
+   - postgres
+dependencies: []

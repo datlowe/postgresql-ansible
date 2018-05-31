@@ -1,0 +1,19 @@
+---
+- name: "Phase 3 - Change default-pass"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  postgresql_user:
+    name: postgres
+    password: "{{ postgresql_admin_pass }}"
+
+- name: "Phase 3 - Add postgresql users"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  postgresql_user:
+    state: present
+    name: "{{ item.name }}"
+    encrypted: no
+    password: "{{ item.pass }}"
+    role_attr_flags: "{{ item.flags }}"
+  with_items: "{{ postgresql_users }}"
+  when: not((postgresql_users is undefined) or (postgresql_users is none) or (postgresql_users | trim == ''))

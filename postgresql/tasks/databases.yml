@@ -1,0 +1,38 @@
+---
+- name: "Phase 4 - Add databases"
+  postgresql_db:
+    state: present
+    name: "{{ item.name }}"
+    template: "{{ item.template }}"
+    encoding: "{{ item.encoding }}"
+    lc_collate: "{{ item.collate }}"
+    lc_ctype: "{{ item.ctype }}"
+    owner: "{{ item.owner }}"
+  with_items: "{{ postgresql_databases }}"
+  when: not((postgresql_databases is undefined) or (postgresql_databases is none) or (postgresql_databases | trim == ''))
+
+- name: "Phase 4 - Check if directory exists"
+  stat:
+    path: "/usr/pgsql-{{ postgresql_version }}/share/contrib"
+  register: contrib_check
+
+- name: "Phase 4 - Adding sql playbook to destination"
+  when: contrib_check.stat.exists
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'sql/', dest: '/usr/pgsql-{{ postgresql_version }}/share/contrib' }
+
+- name: "Phase 4 - Run pgq script"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  shell: "psql -f /usr/pgsql-{{ postgresql_version }}/share/contrib/pgq.sql"
+  when: contrib_check.stat.exists
+
+- name: "Phase 4 - Add extensions"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  command: "psql {{ item[0].name }} -c 'CREATE EXTENSION IF NOT EXISTS {{ item[1] }}'"
+  with_nested:
+    - "{{postgresql_databases}}"
+    - "{{postgresql_extensions}}"
+  when: not((postgresql_extensions is undefined) or (postgresql_extensions is none) or (postgresql_extensions | trim == '') or (postgresql_databases is undefined) or (postgresql_databases is none) or (postgresql_databases | trim == ''))

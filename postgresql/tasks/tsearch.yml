@@ -1,0 +1,48 @@
+---
+- name: "Phase 5 - Check if Czech full-text search was applied"
+  stat:
+    path: "/var/lib/pgsql/{{ postgresql_version }}/data/PG_TSEARCH"
+  register: tsearch_check
+
+- name: "Phase 5 - Adding Czech full-text search"
+  when: not tsearch_check.stat.exists
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'fulltext_dicts/', dest: '/usr/pgsql-{{ postgresql_version }}/share/tsearch_data' }
+    - { src: 'czech.stop', dest: '/usr/pgsql-{{ postgresql_version }}/share/tsearch_data' }
+    - { src: 'dict_snowball.so', dest: '/usr/pgsql-{{ postgresql_version }}/lib' }
+    - { src: 'RUM/lib/', dest: '/usr/pgsql-{{ postgresql_version }}/lib/' }
+    - { src: 'RUM/extension/', dest: '/usr/pgsql-{{ postgresql_version }}/share/extension' }
+
+- name: "Phase 5 - Adding tsearch czech - psql cmd1"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  command: "psql -c 'create text search dictionary czech_ispell
+    (template=ispell, dictfile=czech, afffile=czech, stopwords=czech);'"
+  when: not tsearch_check.stat.exists
+
+- name: "Phase 5 - Adding tsearch czech - psql cmd2"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  command: "psql -c 'create text search dictionary czech_snowball
+    (template=snowball, language=czech, stopwords=czech);'"
+  when: not tsearch_check.stat.exists
+
+- name: "Phase 5 - Adding tsearch czech - psql cmd3"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  command: "psql -c 'create text search configuration czech (copy=english);'"
+  when: not tsearch_check.stat.exists
+
+- name: "Phase 5 - Adding tsearch czech - psql cmd4"
+  become: yes
+  become_user: "{{ postgresql_admin_user }}"
+  command: "psql -c 'alter text search configuration czech
+    alter mapping for word, asciiword with czech_ispell, czech_snowball;'"
+  when: not tsearch_check.stat.exists
+
+- name: "Phase 5 - Check if Czech full-text search was applied"
+  file:
+    path: "/var/lib/pgsql/{{ postgresql_version }}/data/PG_TSEARCH"
+    state: touch
+  when: not tsearch_check.stat.exists

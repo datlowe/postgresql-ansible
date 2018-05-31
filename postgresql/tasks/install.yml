@@ -1,0 +1,9 @@
+---
+- name: "Phase 1 - Install postgresql packages"
+  yum: 
+    state: present
+    pkg: "{{ item }}"
+  with_items:
+    - postgresql{{ postgresql_version |replace('.', '') }}-server
+    - postgresql{{ postgresql_version |replace('.', '') }}-contrib
+    - python-psycopg2
